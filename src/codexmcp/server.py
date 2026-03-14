@@ -35,11 +35,13 @@ def run_shell_command(cmd: list[str]) -> Generator[str, None, None]:
     Yields:
         Output lines from the command
     """
-    # On Windows, codex is exposed via a *.cmd shim. Use cmd.exe with /s so
-    # user prompts containing quotes/newlines aren't reinterpreted as shell syntax.
+    # On Windows, codex is usually exposed via a *.cmd shim and must be
+    # launched through cmd.exe. Otherwise CreateProcess may fail with WinError 193.
     popen_cmd = cmd.copy()
-    codex_path = shutil.which('codex') or cmd[0]
+    codex_path = shutil.which("codex.cmd") or shutil.which("codex") or cmd[0]
     popen_cmd[0] = codex_path
+    if os.name == "nt":
+        popen_cmd = ["cmd.exe", "/d", "/s", "/c", subprocess.list2cmdline(popen_cmd)]
 
     process = subprocess.Popen(
         popen_cmd,
@@ -48,7 +50,7 @@ def run_shell_command(cmd: list[str]) -> Generator[str, None, None]:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         universal_newlines=True,
-        encoding='utf-8',
+        encoding="utf-8",
     )
 
     output_queue: queue.Queue[str | None] = queue.Queue()
